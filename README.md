@@ -76,9 +76,11 @@ A. Keep the necessary requirements in the requirements.txt
 B. Then install with the below command: Pip install -r requirements.txt
 
 ```
-### 5. Create AWS Lambda Function
+### 5. Create DynamoDB Table (for logs)
 
-### 6. Create DynamoDB Table (for logs)
+### 6. Create AWS Lambda Function
+
+### 7. Create API Gateway
 
 ## 🚀 Quick Start
 
