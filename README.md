@@ -122,6 +122,5 @@ step.1  streamlit run .\Finetuning-on-aws\rag_app_ui.py
 
 ![image alt](https://github.com/suman520-git/Finetuning-on-aws/blob/main/Screenshot%202026-02-17%20005918.png?raw=true)
 
-![image alt]
 
 
