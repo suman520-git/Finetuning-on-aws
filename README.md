@@ -1,213 +1,127 @@
 # Finetuning_LLM_on_AWS(Sagemaker)
 
-Retrieving images from the the Qdrant database by querying the database  in the form of text or image  
+Instruction finetuning of the LLM model name "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T" downloaded from Huggingface  with given instruction dataset on AWS sagemaker.
 
 ##  Project Overview
 
-1.Storing images embeddings in the Qdrant database.
+1.Upload the dataset to s3 bucket.
 
-2.Query the database with text query or image query to retrieve the top k image results from the database.
+2.Download the pretrained model from hugging face through sagemaker IDE , read the dataset from s3 bucket through sagenaker IDE.
 
-3.OpenclipEmbedding is used to vectorise the both text and images while saving and retrieving data from the database.
+2.Format the dataset as per instruction finetuning of model and Tokenize the data.
 
-4.Ingestion and Retrieval pipelines are decoupled
+3.Train the model(Supervised Finetuning) with tokenized data and save model in the s3 bucket.
 
-5.First ingest the images data into the qdrant database.
+4.Deploy the trained model saved in the s3 bucket as an API Endpoint.
 
-6.Then , query database either by text query or image query.
+5.configure the  API endpoint in AWS Lambda function and trigger the lambda function(send requests) through API Gateway.
 
-7.LLM is used to rewrite the text query written by the user.
+6.Built RAG application with finetuned LLM calling through API gateway.
+
+
 ## Project Structure
 ```
-sementic-image-search                         
-├─ data                                       
-│  └─ query_images                            
-│     └─ query.png                            
-├─ images                                     
-│  ├─ animal                                  
-│  │  ├─ cat.jpeg                             
-│  │  ├─ crocodile.jpeg                       
-│  │  ├─ crocodile_1.png                      
-│  │  ├─ dog.jpeg                             
-│  │  ├─ elephant.jpeg                        
-│  │  ├─ giraffe.webp                         
-│  │  ├─ horse.webp                           
-│  │  ├─ lion.jpeg                            
-│  │  ├─ panda.jpg                            
-│  │  ├─ tiger.jpeg                           
-│  │  └─ zebra.jpeg                           
-│  ├─ flower                                  
-│  │  ├─ lavender.jpeg                        
-│  │  ├─ lily.jpeg                            
-│  │  ├─ lotus.jpg                            
-│  │  ├─ marigold.jpeg                        
-│  │  ├─ rose.jpg                             
-│  │  ├─ sunflower.jpeg                       
-│  │  └─ tulip.webp                           
-│  ├─ furniture                               
-│  │  └─ table.jpeg                           
-│  ├─ general                                 
-│  │  ├─ bottle.jpeg                          
-│  │  ├─ car.webp                             
-│  │  ├─ chair.jpeg                           
-│  │  ├─ cycle.webp                           
-│  │  ├─ laptop.jpeg                          
-│  │  ├─ pen.webp                             
-│  │  ├─ phone.jpeg                           
-│  │  └─ table.jpeg                           
-│  ├─ uncategorized                           
-│  │  ├─ ak47.jpeg                            
-│  │  ├─ crocodile_1.png                      
-│  │  ├─ lion.jpeg                            
-│  │  └─ sam_altman.jpeg                      
-│  └─ weapon                                  
-│     ├─ ak47.jpeg                            
-│     ├─ crocodile_1.png                      
-│     └─ pistol.jpeg                          
-├─ logs                                       
-│  ├─ 02_11_2026_02_39_00.log                 
-│             
-├─ semantic_image_search                      
-│  ├─ backend                                 
-│  │  ├─ exception                            
-│  │  │  ├─ custom_exception.py               
-│  │  │  └─ __init__.py                       
-│  │  ├─ logger                               
-│  │  │  ├─ custom_logger.py                  
-│  │  │  └─ __init__.py                       
-│  │  ├─ config.py                            
-│  │  ├─ embeddings.py                        
-│  │  ├─ ingestion.py                         
-│  │  ├─ main.py                              
-│  │  ├─ qdrant_client.py                     
-│  │  ├─ query_translator.py                  
-│  │  ├─ retriever.py                         
-│  │  └─ __init__.py                          
-│  ├─ notebooks                               
-│  │  ├─ images                               
-│  │  │  ├─ animal                            
-│  │  │  │  ├─ cat.jpeg                       
-│  │  │  │  ├─ crocodile.jpeg                 
-│  │  │  │  ├─ crocodile_1.png                
-│  │  │  │  ├─ dog.jpeg                       
-│  │  │  │  ├─ elephant.jpeg                  
-│  │  │  │  ├─ giraffe.webp                   
-│  │  │  │  ├─ horse.webp                     
-│  │  │  │  ├─ lion.jpeg                      
-│  │  │  │  ├─ panda.jpg                      
-│  │  │  │  ├─ tiger.jpeg                     
-│  │  │  │  └─ zebra.jpeg                     
-│  │  │  ├─ flower                            
-│  │  │  │  ├─ lavender.jpeg                  
-│  │  │  │  ├─ lily.jpeg                      
-│  │  │  │  ├─ lotus.jpg                      
-│  │  │  │  ├─ marigold.jpeg                  
-│  │  │  │  ├─ rose.jpg                       
-│  │  │  │  ├─ sunflower.jpeg                 
-│  │  │  │  └─ tulip.webp                     
-│  │  │  ├─ furniture                         
-│  │  │  │  └─ table.jpeg                     
-│  │  │  ├─ general                           
-│  │  │  │  ├─ bottle.jpeg                    
-│  │  │  │  ├─ car.webp                       
-│  │  │  │  ├─ chair.jpeg                     
-│  │  │  │  ├─ cycle.webp                     
-│  │  │  │  ├─ laptop.jpeg                    
-│  │  │  │  ├─ pen.webp                       
-│  │  │  │  ├─ phone.jpeg                     
-│  │  │  │  └─ table.jpeg                     
-│  │  │  ├─ uncategorized                     
-│  │  │  │  ├─ ak47.jpeg                      
-│  │  │  │  ├─ crocodile_1.png                
-│  │  │  │  ├─ lion.jpeg                      
-│  │  │  │  └─ sam_altman.jpeg                
-│  │  │  └─ weapon                            
-│  │  │     ├─ ak47.jpeg                      
-│  │  │     ├─ crocodile_1.png                
-│  │  │     └─ pistol.jpeg                    
-│  │  ├─ retrieved_results                    
-│  │  │  └─ a39ea5c4f1794b0aa175202707c2a6bf  
-│  │  │     ├─ result_0.png                   
-│  │  │     ├─ result_1.png                   
-│  │  │     └─ result_2.png                   
-│  │               
-│  └─ __init__.py                             
-├─ ui                                         
-│  └─ app.py                                  
-├─ Dockerfile                                 
-├─ project_structure.py                       
-├─ pyproject.toml                             
-├─ README.md                                  
-├─ requirements.txt                           
-└─ setup.py                                   
-                         
+ Finetuning-on-aws               
+├─ finetuning_experiments       
+│  └─ experiment.ipynb          
+├─ inference                    
+│  └─ inference.py              
+├─ scripts                      
+│  └─ train.py                  
+├─ deployment_of_model.ipynb    
+├─ estimator_launcher.ipynb     
+├─ inference_app.py             
+├─ lambda_function.py           
+├─ pharma_instruction_data.csv  
+├─ rag_app_backend.py           
+├─ rag_app_ui.py                
+├─ rag_app_ui_deprecated.py     
+├─ README.md                    
+├─ requirements.txt             
+└─ requirements_inference.txt   
+                          
 ```
+
+## 🚀 AWS configuration
+
+### 1. Create IAM Roles
+```bash
+
+A. Create SageMaker role
+
+ Attachpolicies: AmazonS3FullAccess ,AmazonSageMakerFullAccess,CloudWatchFullAccess
+
+B. Create Lambda role
+ Attachpolicies: AmazonSageMakerFullAccess,AmazonDynamoDBFullAccess,AmazonS3FullAccess,CloudWatchLogsFullAccess
+
+```
+
+### 2.Create S3 Buckets for Dataset & Model Artifacts
+
+```bash
+A. Create first Bucket (for dataset)
+B. Create Second Bucket (for model artifacts)
+```
+### 3.Verify and Note the paths
+
+```bash
+A. s3://llm-finetune-dataset-suman/datasets/
+B. s3://llm-model-artifacts-suman/models/
+```
+
+### 4. Create SageMaker Notebook Instance
+
+```bash
+A. Keep the necessary requirements in the requirements.txt
+B. Then install with the below command: Pip install -r requirements.txt
+
+```
+### 5. Create AWS Lambda Function
+
+### 6. Create DynamoDB Table (for logs)
 
 ## 🚀 Quick Start
 
 ### 1. Environment Setup
-
 ```bash
 # Clone the repository
-git clone https://github.com/suman520-git/sementic-image-search.git
-cd sementic-image-search
+git clone https://github.com/suman520-git/Finetuning-on-aws.git
+cd Finetuning-on-aws
 
 # Create virtual environment
-conda create -p venv python==3.12 -y
+conda create -p venv python==3.11 -y
 conda activate venv/ 
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r requirements_inference.txt
 ```
-
 ### 2. Configuring variables
 
 ```bash
-#For Qdrant database
-QDRANT_API_KEY = "xxxx"  
-QDRANT_URL = "xxxx"
 
-#For Huggingface
-HF_TOKEN = "xxxx"
+GOOGLE_API_KEY ="xxxx"
 
-#For open Ai model
-OPENAI_API_KEY = "xxxx"
+GROQ_API_KEY ="xxxxx"
 
-```
+OPENAI_API_KEY="xxx"
 
-### 3. Images Data Ingestion to Database
+API_URL = "xxxx"  # Replace with your actual API Gateway endpoint
 
-```bash
-
-# Run the command and ingest data to database through ingestion endpoint and keep serverup
-step.1   uvicorn semantic_image_search.backend.main:app --reload 
+API_KEY= "xxxxx"  # Replace with your actual API Gateway api key
 
 ```
 
-### 4. Application  Usage
+### 3. Application  Usage
 
 ```bash
 # For running the application through Sreamlit
-step.1  streamlit run .\semantic_image_search\ui\app.py
+step.1  streamlit run .\Finetuning-on-aws\rag_app_ui.py   
 
 ```
 ## Application UI
 
-#Search By text query
-![image alt](https://github.com/suman520-git/sementic-image-search/blob/main/U1.png?raw=true)
+![image alt](https://github.com/suman520-git/Finetuning-on-aws/blob/main/Screenshot 2026-02-17 005239.png?raw=true)
 
 
-#Search By Image query
-![image alt](https://github.com/suman520-git/sementic-image-search/blob/main/U2.png?raw=true)
-
-### 5.  Dockerization
-```bash
-# Build Docker Image
-step.1 docker build -t image-search-app .
-
-#Run Docker Container
-step.2 docker run --rm -p 8000:8000 -p 8501:8501 image-search-app
-
-```
 
 
